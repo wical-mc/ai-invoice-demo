@@ -6,11 +6,12 @@ steps:
       - deploy
       - process-invoice-vibe
       - --gen2
-      - --region=us
+      - --region=us-central1        # 👉 程式碼伺服器放回 us-central1
       - --source=.
       - --entry-point=process_invoice
       - --runtime=python310
       - --trigger-bucket=ai-demo-upload-bucket
+      - --trigger-location=us       # 👉 新增這一行！明確指定觸發器去 us 找 Bucket
       - --set-env-vars=PROJECT_ID=$PROJECT_ID,LOCATION=us,PROCESSOR_ID=$_PROCESSOR_ID
 
 substitutions:
