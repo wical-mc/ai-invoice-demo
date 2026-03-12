@@ -1,0 +1,20 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/invoice-web', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/invoice-web']
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - gcloud
+      - run
+      - deploy
+      - invoice-web
+      - --image=gcr.io/$PROJECT_ID/invoice-web
+      - --region=us-central1
+      - --platform=managed
+      - --allow-unauthenticated
+      - --set-env-vars=PROJECT_ID=$PROJECT_ID,LOCATION=us,PROCESSOR_ID=$_PROCESSOR_ID,GCS_BUCKET=$_GCS_BUCKET
+
+substitutions:
+  _PROCESSOR_ID: 'ca7b526548cdf4ef'
+  _GCS_BUCKET: 'ai-demo-upload-bucket'

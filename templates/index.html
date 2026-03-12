@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能發票審核系統</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --success: #16a34a;
+            --warning: #f59e0b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-light);
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+
+        .upload-card {
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 3rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .drop-zone.dragover {
+            border-color: var(--primary);
+            background: #eff6ff;
+        }
+
+        .drop-zone.has-file {
+            border-color: var(--success);
+            background: #f0fdf4;
+        }
+
+        .drop-zone-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+        .drop-zone-text { color: var(--text-light); margin-bottom: 0.5rem; }
+        .drop-zone-hint { color: var(--text-light); font-size: 0.8rem; }
+        .file-name { color: var(--success); font-weight: 600; margin-top: 0.5rem; }
+
+        .file-input { display: none; }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 0.875rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1.25rem;
+            transition: background 0.2s;
+        }
+
+        .btn:hover { background: var(--primary-hover); }
+        .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading.active { display: block; }
+
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-text { color: var(--text-light); }
+
+        .results {
+            display: none;
+        }
+
+        .results.active { display: block; }
+
+        .result-card {
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .result-card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .fields-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .fields-table td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .fields-table td:first-child {
+            font-weight: 600;
+            width: 40%;
+            color: var(--text-light);
+        }
+
+        .gemini-review {
+            line-height: 1.7;
+            white-space: pre-wrap;
+            color: var(--text);
+        }
+
+        .error-msg {
+            display: none;
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .error-msg.active { display: block; }
+
+        .reset-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-light);
+            padding: 0.75rem;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 0.95rem;
+            margin-top: 0.5rem;
+        }
+
+        .reset-btn:hover { background: var(--bg); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>智能發票審核系統</h1>
+        <p class="subtitle">上傳發票或單據，AI 自動萃取資料並產生審核評語</p>
+
+        <div class="upload-card" id="uploadCard">
+            <form id="uploadForm">
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-icon">📄</div>
+                    <p class="drop-zone-text">拖曳檔案至此處，或點擊選擇檔案</p>
+                    <p class="drop-zone-hint">支援 PDF、PNG、JPEG、TIFF（最大 20MB）</p>
+                    <p class="file-name" id="fileName"></p>
+                </div>
+                <input type="file" class="file-input" id="fileInput"
+                       accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff">
+                <button type="submit" class="btn" id="submitBtn" disabled>開始分析</button>
+            </form>
+            <div class="error-msg" id="errorMsg"></div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p class="loading-text">正在處理中，請稍候...</p>
+            <p class="loading-text" style="font-size: 0.8rem; margin-top: 0.5rem;">
+                Document AI 解析 + Gemini 智能審核，約需 10-30 秒
+            </p>
+        </div>
+
+        <div class="results" id="results">
+            <div class="result-card">
+                <h2>📋 萃取結果</h2>
+                <table class="fields-table" id="fieldsTable"></table>
+            </div>
+            <div class="result-card">
+                <h2>🤖 Gemini 智能評語</h2>
+                <div class="gemini-review" id="geminiReview"></div>
+            </div>
+            <button class="reset-btn" onclick="resetForm()">上傳另一份文件</button>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const submitBtn = document.getElementById('submitBtn');
+        const uploadForm = document.getElementById('uploadForm');
+        const uploadCard = document.getElementById('uploadCard');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const errorMsg = document.getElementById('errorMsg');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) {
+                handleFile(fileInput.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            const maxSize = 20 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showError('檔案大小超過 20MB 限制');
+                return;
+            }
+            fileName.textContent = file.name;
+            dropZone.classList.add('has-file');
+            submitBtn.disabled = false;
+            errorMsg.classList.remove('active');
+        }
+
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!fileInput.files.length) return;
+
+            uploadCard.style.display = 'none';
+            loading.classList.add('active');
+            results.classList.remove('active');
+            errorMsg.classList.remove('active');
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetch('/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || '處理失敗');
+                }
+
+                const table = document.getElementById('fieldsTable');
+                table.innerHTML = '';
+                for (const [key, value] of Object.entries(data.extracted_data)) {
+                    const row = table.insertRow();
+                    row.insertCell(0).textContent = key;
+                    row.insertCell(1).textContent = value;
+                }
+
+                document.getElementById('geminiReview').textContent = data.gemini_review;
+
+                loading.classList.remove('active');
+                results.classList.add('active');
+            } catch (err) {
+                loading.classList.remove('active');
+                uploadCard.style.display = 'block';
+                showError(err.message);
+            }
+        });
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.add('active');
+        }
+
+        function resetForm() {
+            results.classList.remove('active');
+            uploadCard.style.display = 'block';
+            fileInput.value = '';
+            fileName.textContent = '';
+            dropZone.classList.remove('has-file');
+            submitBtn.disabled = true;
+        }
+    </script>
+</body>
+</html>

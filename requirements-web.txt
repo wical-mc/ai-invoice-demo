@@ -1,0 +1,5 @@
+flask==3.*
+gunicorn==21.*
+google-cloud-documentai==2.*
+google-cloud-aiplatform==1.*
+google-cloud-storage==2.*
