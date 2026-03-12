@@ -1,0 +1,14 @@
+steps:
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - gcloud
+      - functions
+      - deploy
+      - process-invoice-vibe
+      - --gen2
+      - --region=us-central1
+      - --source=.
+      - --entry-point=process_invoice
+      - --runtime=python310
+      - --trigger-bucket=ai-demo-upload-bucket
+      - --set-env-vars=PROJECT_ID=$PROJECT_ID,LOCATION=us,PROCESSOR_ID=$_PROCESSOR_ID
