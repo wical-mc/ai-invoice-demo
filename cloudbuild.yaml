@@ -6,9 +6,12 @@ steps:
       - deploy
       - process-invoice-vibe
       - --gen2
-      - --region=us-central1
+      - --region=us
       - --source=.
       - --entry-point=process_invoice
       - --runtime=python310
       - --trigger-bucket=ai-demo-upload-bucket
       - --set-env-vars=PROJECT_ID=$PROJECT_ID,LOCATION=us,PROCESSOR_ID=$_PROCESSOR_ID
+
+substitutions:
+  _PROCESSOR_ID: 'ca7b526548cdf4ef'
