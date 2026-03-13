@@ -83,7 +83,27 @@ def upload():
 
         print(f"Document AI result: {json.dumps(extracted_data, ensure_ascii=False)}")
 
-        # 3. Call Gemini for review (using Vertex AI)
+        # 3. Collect audit requirements from form
+        purpose = request.form.get("purpose", "")
+        department = request.form.get("department", "")
+        budget_limit = request.form.get("budget_limit", "")
+        approval_level = request.form.get("approval_level", "")
+        custom_rules = request.form.get("custom_rules", "")
+
+        # Build dynamic audit context
+        audit_context = ""
+        if purpose:
+            audit_context += f"\n        - 報帳用途：{purpose}"
+        if department:
+            audit_context += f"\n        - 申請部門：{department}"
+        if budget_limit:
+            audit_context += f"\n        - 預算上限：{budget_limit} 元，若超過需特別說明"
+        if approval_level:
+            audit_context += f"\n        - 簽核層級：需經{approval_level}核准"
+        if custom_rules:
+            audit_context += f"\n        - 自訂規則：{custom_rules}"
+
+        # Call Gemini for review (using Vertex AI)
         vertexai.init(project=project_id, location="us-central1")
         model = GenerativeModel("gemini-2.5-flash")
 
@@ -93,11 +113,15 @@ def upload():
         {json.dumps(extracted_data, ensure_ascii=False)}
 
         請幫我檢查這份單據，並用繁體中文給出一段「報帳建議評語」。
-        請注意以下規則：
-        1. 檢查是否有抓到「總金額 (total_amount)」和「日期 (invoice_date)」。
+
+        基本規則：
+        1. 檢查是否有抓到「總金額」和「日期」。
         2. 如果金額超過 3000，請提醒「金額較大，需檢附主管簽核」。
         3. 語氣要專業、簡潔。
-        """
+        {"" if not audit_context else f'''
+        使用者提供的額外審核條件：{audit_context}
+        請根據以上條件進行額外檢查，並在評語中明確指出是否符合這些條件。
+        '''}"""
 
         response = model.generate_content(prompt)
 
