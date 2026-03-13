@@ -1,5 +1,6 @@
 import functions_framework
 from google.cloud import documentai_v1 as documentai
+from google.cloud import storage
 import vertexai
 from vertexai.generative_models import GenerativeModel
 import os
@@ -11,14 +12,14 @@ def process_invoice(cloud_event):
     bucket_name = data["bucket"]
     file_name = data["name"]
     gcs_uri = f"gs://{bucket_name}/{file_name}"
-    
+
     print(f"🚀 偵測到新檔案上傳: {gcs_uri}")
 
     project_id = os.environ.get("PROJECT_ID")
     location = os.environ.get("LOCATION", "us")
     processor_id = os.environ.get("PROCESSOR_ID")
 
-    # 1. 自動判斷正確的 MIME Type (修復剛剛的 Bug)
+    # 1. 自動判斷正確的 MIME Type
     mime_type = "application/pdf"
     ext = file_name.lower().split('.')[-1]
     if ext in ['png']:
@@ -30,13 +31,20 @@ def process_invoice(cloud_event):
     else:
         print(f"⚠️ 警告: 未知的副檔名 .{ext}，預設當作 PDF 處理")
 
-    # 2. 呼叫 Document AI
+    # 2. 從 GCS 下載檔案內容
+    storage_client = storage.Client(project=project_id)
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(file_name)
+    file_content = blob.download_as_bytes()
+    print(f"📥 已下載檔案，大小: {len(file_content)} bytes")
+
+    # 3. 呼叫 Document AI (使用 raw_document)
     client = documentai.DocumentProcessorServiceClient()
     name = client.processor_path(project_id, location, processor_id)
-    
+
     request = documentai.ProcessRequest(
         name=name,
-        gcs_document=documentai.GcsDocument(gcs_uri=gcs_uri, mime_type=mime_type)
+        raw_document=documentai.RawDocument(content=file_content, mime_type=mime_type),
     )
 
     print("🧠 正在呼叫 Document AI 解析發票...")
