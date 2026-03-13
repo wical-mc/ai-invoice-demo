@@ -240,6 +240,21 @@
 
         .error-msg.active { display: block; }
 
+        .error-debug {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 0.75rem;
+            font-family: monospace;
+            font-size: 0.75rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+            text-align: left;
+        }
+
         .reset-btn {
             background: none;
             border: 1px solid var(--border);
@@ -440,7 +455,9 @@
                 const data = await res.json();
 
                 if (!res.ok) {
-                    throw new Error(data.error || '處理失敗');
+                    const err = new Error(data.error || '處理失敗');
+                    err.debug = data.debug || null;
+                    throw err;
                 }
 
                 // Show all steps complete
@@ -472,12 +489,16 @@
                 stopTimers();
                 loading.classList.remove('active');
                 uploadCard.style.display = 'block';
-                showError(err.message);
+                showError(err.message, err.debug || null);
             }
         });
 
-        function showError(msg) {
-            errorMsg.textContent = msg;
+        function showError(msg, debug) {
+            let html = `<strong>${msg}</strong>`;
+            if (debug) {
+                html += `<div class="error-debug">${JSON.stringify(debug, null, 2)}</div>`;
+            }
+            errorMsg.innerHTML = html;
             errorMsg.classList.add('active');
         }
 

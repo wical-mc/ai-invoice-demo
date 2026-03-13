@@ -39,7 +39,8 @@ def process_invoice(cloud_event):
     print(f"📥 已下載檔案，大小: {len(file_content)} bytes")
 
     # 3. 呼叫 Document AI (使用 raw_document)
-    client = documentai.DocumentProcessorServiceClient()
+    docai_opts = {"api_endpoint": f"{location}-documentai.googleapis.com"}
+    client = documentai.DocumentProcessorServiceClient(client_options=docai_opts)
     name = client.processor_path(project_id, location, processor_id)
 
     request = documentai.ProcessRequest(
@@ -61,7 +62,7 @@ def process_invoice(cloud_event):
     print("✨ 正在交給 Gemini 撰寫報帳評語...")
     vertexai.init(project=project_id, location="us-central1")
     # 使用最新的 Gemini 1.5 Flash 模型 (快速且便宜)
-    model = GenerativeModel("gemini-1.5-flash-001") 
+    model = GenerativeModel("gemini-2.5-flash") 
     
     prompt = f"""
     你現在是一位嚴格但友善的企業財務人員。

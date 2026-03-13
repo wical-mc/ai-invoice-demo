@@ -46,6 +46,18 @@ def upload():
         # Read file bytes once for both GCS and Document AI
         file_content = file.read()
 
+        # Verify actual file format via magic bytes
+        magic = file_content[:12]
+        print(f"DEBUG: filename={filename}, ext={ext}, size={len(file_content)}, magic_hex={magic.hex()}")
+        if ext == "png" and magic[:8] != b'\x89PNG\r\n\x1a\n':
+            # Check if it's actually HEIC/HEIF
+            if b'ftyp' in file_content[:12]:
+                return jsonify({"error": "此檔案實際上是 HEIC 格式，非 PNG。請先轉換為 PNG 或 JPEG 後再上傳。"}), 400
+            return jsonify({
+                "error": "檔案內容與副檔名不符，非有效的 PNG 檔案",
+                "debug": {"magic_hex": magic.hex(), "expected": "89504e470d0a1a0a"}
+            }), 400
+
         # 1. Upload to GCS
         storage_client = storage.Client(project=project_id)
         bucket = storage_client.bucket(bucket_name)
@@ -55,7 +67,8 @@ def upload():
         print(f"Uploaded to {gcs_uri}")
 
         # 2. Call Document AI (using raw bytes directly)
-        docai_client = documentai.DocumentProcessorServiceClient()
+        docai_opts = {"api_endpoint": f"{location}-documentai.googleapis.com"}
+        docai_client = documentai.DocumentProcessorServiceClient(client_options=docai_opts)
         resource_name = docai_client.processor_path(project_id, location, processor_id)
 
         docai_request = documentai.ProcessRequest(
@@ -70,9 +83,9 @@ def upload():
 
         print(f"Document AI result: {json.dumps(extracted_data, ensure_ascii=False)}")
 
-        # 3. Call Gemini for review
+        # 3. Call Gemini for review (using Vertex AI)
         vertexai.init(project=project_id, location="us-central1")
-        model = GenerativeModel("gemini-1.5-flash-001")
+        model = GenerativeModel("gemini-2.5-flash")
 
         prompt = f"""
         你現在是一位嚴格但友善的企業財務人員。
@@ -98,7 +111,23 @@ def upload():
     except ImportError as e:
         return jsonify({"error": f"缺少套件，請安裝 requirements-web.txt: {e}"}), 500
     except Exception as e:
-        return jsonify({"error": f"處理失敗: {str(e)}"}), 500
+        import traceback
+        tb = traceback.format_exc()
+        print(f"ERROR: {tb}")
+        error_detail = {
+            "error": f"處理失敗: {str(e)}",
+            "debug": {
+                "type": type(e).__name__,
+                "filename": filename if 'filename' in dir() else None,
+                "mime_type": mime_type if 'mime_type' in dir() else None,
+                "file_size": len(file_content) if 'file_content' in dir() else None,
+                "project_id": project_id if 'project_id' in dir() else None,
+                "location": location if 'location' in dir() else None,
+                "processor_id": processor_id if 'processor_id' in dir() else None,
+                "traceback": tb,
+            }
+        }
+        return jsonify(error_detail), 500
 
 
 if __name__ == "__main__":
